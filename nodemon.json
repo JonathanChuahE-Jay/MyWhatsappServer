@@ -1,0 +1,6 @@
+{
+  "watch": ["src"],
+  "ext": "ts,json",
+  "ignore": ["sessions/**", "dist/**", "node_modules/**"],
+  "exec": "npx ts-node src/index.ts"
+}

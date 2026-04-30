@@ -1,0 +1,40 @@
+{
+  "name": "wbwaserver",
+  "version": "1.0.0",
+  "description": "",
+  "main": "nodemon index.ts",
+  "scripts": {
+    "dev": "nodemon",
+    "build": "tsc",
+    "start": "node dist/index.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@fastify/websocket": "^11.2.0",
+    "@hapi/boom": "^10.0.1",
+    "@itsukichan/baileys": "^7.3.2",
+    "@tanstack/pacer": "^0.15.4",
+    "dayjs": "^1.11.19",
+    "dotenv": "^17.3.1",
+    "fastify": "^5.6.2",
+    "http-proxy-agent": "^7.0.2",
+    "ioredis": "^5.9.3",
+    "ky": "^1.14.0",
+    "nodemon": "^3.1.14",
+    "qrcode": "^1.5.4",
+    "qrcode-terminal": "^0.12.0",
+    "redis": "^5.12.1",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "@types/qrcode": "^1.5.6",
+    "@types/qrcode-terminal": "^0.12.2",
+    "@types/redis": "^4.0.11",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3"
+  }
+}
