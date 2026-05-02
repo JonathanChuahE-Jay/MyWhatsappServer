@@ -31,9 +31,13 @@ type SessionMeta = {
    status: string
    createdAt: string
    connectedAt?: string
+   disconnectedAt?: string
    phoneNumber?: string
    name?: string
+   callbackUrls?: string[]
 }
+
+const STALE_THRESHOLD_MS = parseInt(process.env.SESSION_STALE_HOURS || '24') * 60 * 60 * 1000
 
 function readSessionsFile(): SessionMeta[] {
    try {
@@ -56,8 +60,10 @@ function upsertSessionInFile(info: SessionInfo): void {
       status: info.status,
       createdAt: info.createdAt,
       connectedAt: info.connectedAt,
+      disconnectedAt: info.disconnectedAt,
       phoneNumber: info.phoneNumber,
       name: info.name,
+      callbackUrls: info.callbackUrls,
    }
    if (idx >= 0) all[idx] = entry
    else all.push(entry)
@@ -84,7 +90,7 @@ export async function getRegisteredSessionIds(): Promise<string[]> {
    return arr.map((m) => (Buffer.isBuffer(m) ? m.toString() : String(m)))
 }
 
-export async function createSession(sessionId: string): Promise<SessionInfo> {
+export async function createSession(sessionId: string, callbackUrls?: string[]): Promise<SessionInfo> {
    if (sessions.has(sessionId)) {
       const existing = sessions.get(sessionId)!
       if (existing.status === 'open') {
@@ -97,6 +103,7 @@ export async function createSession(sessionId: string): Promise<SessionInfo> {
       id: sessionId,
       status: 'initializing',
       createdAt: new Date().toISOString(),
+      callbackUrls: callbackUrls ?? [],
    }
 
    sessions.set(sessionId, sessionInfo)
@@ -160,9 +167,11 @@ export async function createSession(sessionId: string): Promise<SessionInfo> {
             setTimeout(() => createSession(sessionId), 3000)
          } else {
             info.status = 'logout'
+            info.disconnectedAt = new Date().toISOString()
             sessions.set(sessionId, info)
             upsertSessionInFile(info)
             await unregisterSessionFromRedis(sessionId)
+            await deleteRedisAuthState(sessionId)
          }
       }
 
@@ -202,6 +211,7 @@ export function getAllSessions(): SessionInfo[] {
       phoneNumber: s.phoneNumber,
       name: s.name,
       qrBase64: s.qrBase64,
+      callbackUrls: s.callbackUrls ?? [],
    }))
 }
 
@@ -258,7 +268,8 @@ export async function restoreStoredSessions(): Promise<void> {
       if (credsStr) {
          console.log(`Restoring session: ${sessionId}`)
          try {
-            await createSession(sessionId)
+            const meta = readSessionsFile().find((s) => s.id === sessionId)
+            await createSession(sessionId, meta?.callbackUrls)
          } catch (e) {
             console.error(`Failed to restore session ${sessionId}:`, e)
          }
@@ -267,5 +278,33 @@ export async function restoreStoredSessions(): Promise<void> {
          await unregisterSessionFromRedis(sessionId)
          removeSessionFromFile(sessionId)
       }
+   }
+}
+
+export function getSessionMetaFromFile(sessionId: string): SessionMeta | undefined {
+   return readSessionsFile().find((s) => s.id === sessionId)
+}
+
+export async function cleanupStaleSessions(): Promise<void> {
+   const now = Date.now()
+   const all = readSessionsFile()
+   const stale = all.filter(
+      (s) =>
+         s.status === 'logout' &&
+         s.disconnectedAt &&
+         now - new Date(s.disconnectedAt).getTime() > STALE_THRESHOLD_MS,
+   )
+
+   for (const s of stale) {
+      console.log(`[Cleanup] Removing stale session ${s.id} (disconnected at ${s.disconnectedAt})`)
+      await unregisterSessionFromRedis(s.id)
+      await deleteRedisAuthState(s.id)
+      removeSessionFromFile(s.id)
+      sessions.delete(s.id)
+      stores.delete(s.id)
+   }
+
+   if (stale.length > 0) {
+      console.log(`[Cleanup] Removed ${stale.length} stale session(s)`)
    }
 }

@@ -10,8 +10,10 @@ export interface SessionInfo {
   socket?: WASocket
   createdAt: string
   connectedAt?: string
+  disconnectedAt?: string
   phoneNumber?: string
   name?: string
+  callbackUrls?: string[]
 }
 
 export interface SessionStore {

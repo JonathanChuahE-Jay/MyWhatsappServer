@@ -5,7 +5,7 @@ import { sessionRoutes } from './routes/sessions'
 import { messageRoutes } from './routes/messages'
 import { utilityRoutes } from './routes/utility'
 import { connectRedis } from './services/redisClient'
-import { restoreStoredSessions, getAllSessions } from './services/sessionManager'
+import { restoreStoredSessions, getAllSessions, cleanupStaleSessions } from './services/sessionManager'
 
 const PORT = parseInt(process.env.PORT || '3000')
 const HOST = process.env.HOST || '0.0.0.0'
@@ -42,6 +42,7 @@ async function main() {
           'POST /sessions': 'Create new session (body: { sessionId })',
           'DELETE /sessions/:id': 'Delete/disconnect session',
           'POST /sessions/:id/logout': 'Logout from WhatsApp',
+          'POST /sessions/:id/reconnect': 'Reconnect a disconnected/logged-out session',
           'GET /sessions/:id/qr': 'Get QR code (query: format=base64)',
         },
         messages: {
@@ -105,6 +106,8 @@ async function main() {
   await connectRedis()
   console.log('🔄 Restoring saved sessions...')
   await restoreStoredSessions()
+  await cleanupStaleSessions()
+  setInterval(() => cleanupStaleSessions().catch(console.error), 60 * 60 * 1000)
 
   await fastify.listen({ port: PORT, host: HOST })
   console.log(`\n🚀 WhatsApp API running on http://${HOST}:${PORT}`)
