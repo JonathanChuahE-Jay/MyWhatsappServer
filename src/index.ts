@@ -1,5 +1,13 @@
 import 'dotenv/config'
 import Fastify from 'fastify'
+
+process.on('uncaughtException', (err) => {
+  console.error('[Process] Uncaught exception (non-fatal):', err.message)
+})
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[Process] Unhandled rejection (non-fatal):', reason)
+})
 import websocket from '@fastify/websocket'
 import { sessionRoutes } from './routes/sessions'
 import { messageRoutes } from './routes/messages'

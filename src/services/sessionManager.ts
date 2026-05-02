@@ -14,6 +14,26 @@ import type {SessionInfo} from '../types'
 import redisClient from './redisClient'
 import {deleteRedisAuthState, useRedisAuthState} from './redisAuthState'
 
+async function fireCallbacks(info: SessionInfo, status: string): Promise<void> {
+   if (!info.callbackUrls?.length) return
+   const payload = {
+      sessionId: info.id,
+      status,
+      phoneNumber: info.phoneNumber,
+      name: info.name,
+   }
+   await Promise.allSettled(
+      info.callbackUrls.map((url) =>
+         fetch(url, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload),
+            signal: AbortSignal.timeout(5000),
+         }).catch((err) => console.error(`[${info.id}] Callback failed for ${url}:`, err))
+      )
+   )
+}
+
 const SESSIONS_DIR = process.env.SESSIONS_DIR || './sessions'
 const SESSIONS_FILE = path.join(SESSIONS_DIR, 'sessions.json')
 const REDIS_SESSIONS_SET = 'wa:sessions'
@@ -152,6 +172,7 @@ export async function createSession(sessionId: string, callbackUrls?: string[]):
          } catch (_) {
          }
          upsertSessionInFile(info)
+         fireCallbacks(info, 'qr').catch(() => {})
       }
 
       if (connection === 'close') {
@@ -164,12 +185,14 @@ export async function createSession(sessionId: string, callbackUrls?: string[]):
             info.status = 'connecting'
             sessions.set(sessionId, info)
             upsertSessionInFile(info)
-            setTimeout(() => createSession(sessionId), 3000)
+            fireCallbacks(info, 'connecting').catch(() => {})
+            setTimeout(() => createSession(sessionId, info.callbackUrls), 3000)
          } else {
             info.status = 'logout'
             info.disconnectedAt = new Date().toISOString()
             sessions.set(sessionId, info)
             upsertSessionInFile(info)
+            fireCallbacks(info, 'logout').catch(() => {})
             await unregisterSessionFromRedis(sessionId)
             await deleteRedisAuthState(sessionId)
          }
@@ -190,10 +213,15 @@ export async function createSession(sessionId: string, callbackUrls?: string[]):
          console.log(`[${sessionId}] Connected! Phone: ${info.phoneNumber}`)
          sessions.set(sessionId, info)
          upsertSessionInFile(info)
+         fireCallbacks(info, 'open').catch(() => {})
       }
    })
 
    socket.ev.on('creds.update', saveCreds)
+
+   socket.ws.on('error', (err) => {
+      console.error(`[${sessionId}] WebSocket error (non-fatal):`, err.message)
+   })
 
    return sessionInfo
 }
