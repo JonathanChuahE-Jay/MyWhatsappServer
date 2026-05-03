@@ -1,7 +1,7 @@
 import type { WASocket, WAMessage } from '@itsukichan/baileys'
 import { getSession, getStore } from './sessionManager'
 import type { MessagePayload, QuotedMessage } from '../types'
-import { extractOutboundContent, fireMessageWebhooks } from './webhookService'
+import { extractOutboundContent, fireMessageWebhooks, phoneFromJid } from './webhookService'
 
 async function getQuotedMessage(socket: WASocket, sessionId: string, quoted?: QuotedMessage) {
   if (!quoted) return undefined
@@ -38,6 +38,7 @@ export async function sendMessage(
       from: session.phoneNumber ? `${session.phoneNumber}@s.whatsapp.net` : sessionId,
       to: jid,
       senderPhone: session.phoneNumber,
+      recipientPhone: phoneFromJid(jid),
       timestamp: new Date().toISOString(),
       type: payload.type,
       content: extractOutboundContent(payload),

@@ -14,7 +14,7 @@ import * as path from 'path'
 import type {SessionInfo} from '../types'
 import redisClient from './redisClient'
 import {deleteRedisAuthState, useRedisAuthState} from './redisAuthState'
-import {extractInboundContent, fireMessageWebhooks} from './webhookService'
+import {extractInboundContent, fireMessageWebhooks, phoneFromJid} from './webhookService'
 
 function resolvePhone(jid: string, sessionId: string, altJid?: string): string | undefined {
    if (altJid?.endsWith('@s.whatsapp.net')) return altJid.split('@')[0]
@@ -276,6 +276,7 @@ export async function createSession(sessionId: string, callbackUrls?: string[], 
             from: fromJid,
             to: info.phoneNumber ? `${info.phoneNumber}@s.whatsapp.net` : sessionId,
             senderPhone,
+            recipientPhone: info.phoneNumber,
             timestamp: ts,
             type: msgType,
             content,

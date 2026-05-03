@@ -7,10 +7,17 @@ export interface MessageWebhookPayload {
   from: string
   to: string
   senderPhone?: string
+  recipientPhone?: string
   timestamp: string
   type: string
   content: Record<string, any>
   pushName?: string
+}
+
+export function phoneFromJid(jid: string | undefined): string | undefined {
+  if (!jid) return undefined
+  if (jid.endsWith('@s.whatsapp.net')) return jid.split('@')[0]
+  return undefined
 }
 
 export async function fireMessageWebhooks(urls: string[], payload: MessageWebhookPayload): Promise<void> {
