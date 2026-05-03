@@ -4,6 +4,7 @@ import makeWASocket, {
    fetchLatestBaileysVersion,
    makeInMemoryStore,
    WAMessageKey,
+   downloadMediaMessage,
 } from '@itsukichan/baileys'
 import {Boom} from '@hapi/boom'
 import * as qrcode from 'qrcode'
@@ -13,6 +14,23 @@ import * as path from 'path'
 import type {SessionInfo} from '../types'
 import redisClient from './redisClient'
 import {deleteRedisAuthState, useRedisAuthState} from './redisAuthState'
+import {extractInboundContent, fireMessageWebhooks} from './webhookService'
+
+function resolvePhone(jid: string, sessionId: string, altJid?: string): string | undefined {
+   if (altJid?.endsWith('@s.whatsapp.net')) return altJid.split('@')[0]
+   if (jid.endsWith('@s.whatsapp.net')) return jid.split('@')[0]
+   if (jid.endsWith('@lid')) {
+      const store = stores.get(sessionId)
+      if (store?.contacts) {
+         for (const [contactJid, contact] of Object.entries(store.contacts)) {
+            if ((contact as any).lid === jid && contactJid.endsWith('@s.whatsapp.net')) {
+               return contactJid.split('@')[0]
+            }
+         }
+      }
+   }
+   return undefined
+}
 
 async function fireCallbacks(info: SessionInfo, status: string): Promise<void> {
    if (!info.callbackUrls?.length) return
@@ -55,6 +73,7 @@ type SessionMeta = {
    phoneNumber?: string
    name?: string
    callbackUrls?: string[]
+   messageWebhookUrls?: string[]
 }
 
 const STALE_THRESHOLD_MS = parseInt(process.env.SESSION_STALE_HOURS || '24') * 60 * 60 * 1000
@@ -84,6 +103,7 @@ function upsertSessionInFile(info: SessionInfo): void {
       phoneNumber: info.phoneNumber,
       name: info.name,
       callbackUrls: info.callbackUrls,
+      messageWebhookUrls: info.messageWebhookUrls,
    }
    if (idx >= 0) all[idx] = entry
    else all.push(entry)
@@ -110,7 +130,7 @@ export async function getRegisteredSessionIds(): Promise<string[]> {
    return arr.map((m) => (Buffer.isBuffer(m) ? m.toString() : String(m)))
 }
 
-export async function createSession(sessionId: string, callbackUrls?: string[]): Promise<SessionInfo> {
+export async function createSession(sessionId: string, callbackUrls?: string[], messageWebhookUrls?: string[]): Promise<SessionInfo> {
    if (sessions.has(sessionId)) {
       const existing = sessions.get(sessionId)!
       if (existing.status === 'open') {
@@ -124,6 +144,7 @@ export async function createSession(sessionId: string, callbackUrls?: string[]):
       status: 'initializing',
       createdAt: new Date().toISOString(),
       callbackUrls: callbackUrls ?? [],
+      messageWebhookUrls: messageWebhookUrls ?? [],
    }
 
    sessions.set(sessionId, sessionInfo)
@@ -186,7 +207,7 @@ export async function createSession(sessionId: string, callbackUrls?: string[]):
             sessions.set(sessionId, info)
             upsertSessionInFile(info)
             fireCallbacks(info, 'connecting').catch(() => {})
-            setTimeout(() => createSession(sessionId, info.callbackUrls), 3000)
+            setTimeout(() => createSession(sessionId, info.callbackUrls, info.messageWebhookUrls), 3000)
          } else {
             info.status = 'logout'
             info.disconnectedAt = new Date().toISOString()
@@ -218,6 +239,50 @@ export async function createSession(sessionId: string, callbackUrls?: string[]):
    })
 
    socket.ev.on('creds.update', saveCreds)
+
+   socket.ev.on('messages.upsert', async ({messages, type}) => {
+      if (type !== 'notify') return
+      const info = sessions.get(sessionId)
+
+      for (const msg of messages) {
+         if (msg.key.fromMe) continue
+
+         const fromJid = msg.key.remoteJid!
+         const altJid = (msg.key as any).remoteJidAlt as string | undefined
+         // group messages carry the real sender in participant; fall back to remoteJid / altJid
+         const senderJid = msg.key.participant ?? fromJid
+         const senderPhone = resolvePhone(senderJid, sessionId, altJid)
+
+         if (!info?.messageWebhookUrls?.length) continue
+
+         const {type: msgType, content} = extractInboundContent(msg.message)
+
+         if (['image', 'video', 'audio', 'document', 'sticker'].includes(msgType)) {
+            try {
+               const buffer = await downloadMediaMessage(msg, 'buffer', {}) as Buffer
+               if (buffer?.length) content.data = buffer.toString('base64')
+            } catch (err: any) {
+               console.error(`[${sessionId}] Media download failed (${msgType}):`, err.message)
+            }
+         }
+
+         const ts = msg.messageTimestamp
+            ? new Date(Number(msg.messageTimestamp) * 1000).toISOString()
+            : new Date().toISOString()
+         fireMessageWebhooks(info.messageWebhookUrls, {
+            sessionId,
+            direction: 'inbound',
+            messageId: msg.key.id,
+            from: fromJid,
+            to: info.phoneNumber ? `${info.phoneNumber}@s.whatsapp.net` : sessionId,
+            senderPhone,
+            timestamp: ts,
+            type: msgType,
+            content,
+            pushName: msg.pushName,
+         }).catch((err) => console.error(`[${sessionId}] Inbound webhook error:`, err.message))
+      }
+   })
 
    socket.ws.on('error', (err) => {
       console.error(`[${sessionId}] WebSocket error (non-fatal):`, err.message)
@@ -297,7 +362,7 @@ export async function restoreStoredSessions(): Promise<void> {
          console.log(`Restoring session: ${sessionId}`)
          try {
             const meta = readSessionsFile().find((s) => s.id === sessionId)
-            await createSession(sessionId, meta?.callbackUrls)
+            await createSession(sessionId, meta?.callbackUrls, meta?.messageWebhookUrls)
          } catch (e) {
             console.error(`Failed to restore session ${sessionId}:`, e)
          }

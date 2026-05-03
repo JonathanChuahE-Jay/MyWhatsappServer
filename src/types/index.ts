@@ -14,6 +14,7 @@ export interface SessionInfo {
   phoneNumber?: string
   name?: string
   callbackUrls?: string[]
+  messageWebhookUrls?: string[]
 }
 
 export interface SessionStore {

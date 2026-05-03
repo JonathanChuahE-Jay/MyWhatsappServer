@@ -1,6 +1,7 @@
 import type { WASocket, WAMessage } from '@itsukichan/baileys'
 import { getSession, getStore } from './sessionManager'
 import type { MessagePayload, QuotedMessage } from '../types'
+import { extractOutboundContent, fireMessageWebhooks } from './webhookService'
 
 async function getQuotedMessage(socket: WASocket, sessionId: string, quoted?: QuotedMessage) {
   if (!quoted) return undefined
@@ -21,6 +22,32 @@ async function getQuotedMessage(socket: WASocket, sessionId: string, quoted?: Qu
 }
 
 export async function sendMessage(
+  sessionId: string,
+  to: string,
+  payload: MessagePayload
+): Promise<{ id?: string }> {
+  const result = await _sendMessage(sessionId, to, payload)
+
+  const session = getSession(sessionId)
+  if (session?.messageWebhookUrls?.length) {
+    const jid = normalizeJid(to)
+    fireMessageWebhooks(session.messageWebhookUrls, {
+      sessionId,
+      direction: 'outbound',
+      messageId: result.id,
+      from: session.phoneNumber ? `${session.phoneNumber}@s.whatsapp.net` : sessionId,
+      to: jid,
+      senderPhone: session.phoneNumber,
+      timestamp: new Date().toISOString(),
+      type: payload.type,
+      content: extractOutboundContent(payload),
+    }).catch((err) => console.error(`[${sessionId}] Outbound webhook error:`, err.message))
+  }
+
+  return result
+}
+
+async function _sendMessage(
   sessionId: string,
   to: string,
   payload: MessagePayload

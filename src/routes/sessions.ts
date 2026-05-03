@@ -26,7 +26,7 @@ export async function sessionRoutes(fastify: FastifyInstance) {
    })
 
 
-   fastify.post<{ Body: { sessionId: string; callbackUrls?: string[] } }>('/sessions', async (req, reply) => {
+   fastify.post<{ Body: { sessionId: string; callbackUrls?: string[]; messageWebhookUrls?: string[] } }>('/sessions', async (req, reply) => {
       const body = req.body as any
       const parseResult = sessionIdSchema.safeParse(body?.sessionId)
 
@@ -45,10 +45,18 @@ export async function sessionRoutes(fastify: FastifyInstance) {
          return reply.code(400).send({success: false, error: `Invalid callbackUrl: ${invalidUrl}`})
       }
 
+      const messageWebhookUrls: string[] = Array.isArray(body?.messageWebhookUrls) ? body.messageWebhookUrls : []
+      const invalidWebhookUrl = messageWebhookUrls.find((u) => {
+         try { new URL(u); return false } catch { return true }
+      })
+      if (invalidWebhookUrl) {
+         return reply.code(400).send({success: false, error: `Invalid messageWebhookUrl: ${invalidWebhookUrl}`})
+      }
+
       const sessionId = parseResult.data
 
       try {
-         const session = await createSession(sessionId, callbackUrls)
+         const session = await createSession(sessionId, callbackUrls, messageWebhookUrls)
          const {socket: _socket, ...safe} = session as any
          return reply.code(201).send({success: true, data: safe, message: 'Session created. Scan QR code to connect.'})
       } catch (err: any) {
@@ -92,18 +100,21 @@ export async function sessionRoutes(fastify: FastifyInstance) {
       }
 
       let existingCallbackUrls: string[] | undefined
+      let existingWebhookUrls: string[] | undefined
       if (!session) {
          const meta = getSessionMetaFromFile(id)
          if (!meta) {
             return reply.code(404).send({success: false, error: 'Session not found'})
          }
          existingCallbackUrls = meta.callbackUrls
+         existingWebhookUrls = meta.messageWebhookUrls
       } else {
          existingCallbackUrls = session.callbackUrls
+         existingWebhookUrls = session.messageWebhookUrls
       }
 
       try {
-         const newSession = await createSession(id, existingCallbackUrls)
+         const newSession = await createSession(id, existingCallbackUrls, existingWebhookUrls)
          const {socket: _socket, ...safe} = newSession as any
          return reply.send({success: true, data: safe, message: 'Session reconnecting. Scan QR code if needed.'})
       } catch (err: any) {

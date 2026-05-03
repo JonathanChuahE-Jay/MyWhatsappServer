@@ -8,6 +8,7 @@ process.on('uncaughtException', (err) => {
 process.on('unhandledRejection', (reason) => {
   console.error('[Process] Unhandled rejection (non-fatal):', reason)
 })
+
 import websocket from '@fastify/websocket'
 import { sessionRoutes } from './routes/sessions'
 import { messageRoutes } from './routes/messages'
