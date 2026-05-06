@@ -1,4 +1,4 @@
-import type { WASocket } from '@itsukichan/baileys'
+import type { WASocket } from 'baileys'
 
 export type SessionStatus = 'initializing' | 'qr' | 'connecting' | 'open' | 'close' | 'logout'
 

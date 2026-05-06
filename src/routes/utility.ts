@@ -5,7 +5,6 @@ import {apiKeyMiddleware} from '../middleware/apiKey'
 export async function utilityRoutes(fastify: FastifyInstance) {
    fastify.addHook('preHandler', apiKeyMiddleware)
 
-   // Check if JID exists on WhatsApp
    fastify.post<{ Body: { sessionId: string; jid: string } }>('/check-jid', async (req, reply) => {
       const {sessionId, jid} = req.body as any
       const session = getSession(sessionId)

@@ -1,4 +1,4 @@
-import {AuthenticationState, BufferJSON, initAuthCreds, proto} from '@itsukichan/baileys'
+import {AuthenticationState, BufferJSON, initAuthCreds, proto} from 'baileys'
 import redisClient from './redisClient'
 
 const KEY_MAP: Record<string, string> = {

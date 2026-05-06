@@ -2,10 +2,39 @@ import makeWASocket, {
    Browsers,
    DisconnectReason,
    fetchLatestBaileysVersion,
-   makeInMemoryStore,
    WAMessageKey,
    downloadMediaMessage,
-} from '@itsukichan/baileys'
+} from 'baileys'
+
+class SimpleMessageStore {
+   private messages = new Map<string, any>()
+   contacts: Record<string, any> = {}
+
+   bind(ev: any) {
+      ev.on('messages.upsert', ({ messages }: { messages: any[] }) => {
+         for (const msg of messages) {
+            if (msg.key?.remoteJid && msg.key?.id) {
+               this.messages.set(`${msg.key.remoteJid}:${msg.key.id}`, msg)
+            }
+         }
+      })
+      ev.on('contacts.upsert', (contacts: any[]) => {
+         for (const c of contacts) {
+            if (c.id) this.contacts[c.id] = { ...this.contacts[c.id], ...c }
+         }
+      })
+      ev.on('contacts.update', (contacts: any[]) => {
+         for (const c of contacts) {
+            if (c.id) this.contacts[c.id] = { ...this.contacts[c.id], ...c }
+         }
+      })
+   }
+
+   async loadMessage(jid: string, id: string) {
+      return this.messages.get(`${jid}:${id}`) ?? undefined
+   }
+}
+
 import {Boom} from '@hapi/boom'
 import * as qrcode from 'qrcode'
 import qrcodeTerminal from 'qrcode-terminal'
@@ -61,7 +90,7 @@ if (!fs.existsSync(SESSIONS_DIR)) {
 }
 
 const sessions = new Map<string, SessionInfo>()
-const stores = new Map<string, ReturnType<typeof makeInMemoryStore>>()
+const stores = new Map<string, SimpleMessageStore>()
 
 
 type SessionMeta = {
@@ -151,7 +180,7 @@ export async function createSession(sessionId: string, callbackUrls?: string[], 
    await registerSessionInRedis(sessionId)
    upsertSessionInFile(sessionInfo)
 
-   const store = makeInMemoryStore({})
+   const store = new SimpleMessageStore()
    stores.set(sessionId, store)
 
    const {state, saveCreds} = await useRedisAuthState(sessionId)

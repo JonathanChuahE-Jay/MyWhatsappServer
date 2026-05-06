@@ -15,7 +15,7 @@
   "dependencies": {
     "@fastify/websocket": "^11.2.0",
     "@hapi/boom": "^10.0.1",
-    "@itsukichan/baileys": "^7.3.2",
+    "baileys": "github:JonathanChuahE-Jay/Baileys",
     "@tanstack/pacer": "^0.15.4",
     "dayjs": "^1.11.19",
     "dotenv": "^17.3.1",

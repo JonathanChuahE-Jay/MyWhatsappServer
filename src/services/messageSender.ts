@@ -1,4 +1,4 @@
-import type { WASocket, WAMessage } from '@itsukichan/baileys'
+import type { WASocket, WAMessage } from 'baileys'
 import { getSession, getStore } from './sessionManager'
 import type { MessagePayload, QuotedMessage } from '../types'
 import { extractOutboundContent, fireMessageWebhooks, phoneFromJid } from './webhookService'
