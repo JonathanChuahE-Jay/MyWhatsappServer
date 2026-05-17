@@ -88,8 +88,37 @@ export function extractInboundContent(message: any): { type: string; content: Re
   if (message.buttonsResponseMessage)
     return { type: 'buttons_response', content: { selectedButtonId: message.buttonsResponseMessage.selectedButtonId, selectedDisplayText: message.buttonsResponseMessage.selectedDisplayText } }
 
-  if (message.interactiveResponseMessage)
-    return { type: 'interactive_response', content: { body: message.interactiveResponseMessage.body } }
+  if (message.templateButtonReplyMessage)
+    return {
+      type: 'templateButtonReplyMessage',
+      content: {
+        selectedButtonId: message.templateButtonReplyMessage.selectedId ?? message.templateButtonReplyMessage.selectedButtonId ?? null,
+        selectedId: message.templateButtonReplyMessage.selectedId ?? null,
+        selectedDisplayText: message.templateButtonReplyMessage.selectedDisplayText ?? null,
+        selectedIndex: message.templateButtonReplyMessage.selectedIndex ?? null,
+      }
+    }
+
+  if (message.interactiveResponseMessage) {
+    const native = message.interactiveResponseMessage.nativeFlowResponseMessage
+    let parsedParams: any = null
+    if (native?.paramsJson) {
+      try { parsedParams = JSON.parse(native.paramsJson) } catch {}
+    }
+    return {
+      type: 'interactive_response',
+      content: {
+        body: message.interactiveResponseMessage.body,
+        selectedButtonId: parsedParams?.id ?? parsedParams?.selectedId ?? null,
+        selectedDisplayText: parsedParams?.display_text ?? message.interactiveResponseMessage.body?.text ?? null,
+        nativeFlowResponse: native ? {
+          name: native.name ?? null,
+          paramsJson: native.paramsJson ?? null,
+          version: native.version ?? null,
+        } : null,
+      }
+    }
+  }
 
   if (message.templateMessage)
     return { type: 'template', content: {} }

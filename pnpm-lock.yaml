@@ -19,7 +19,7 @@ importers:
         version: 0.15.4
       baileys:
         specifier: github:JonathanChuahE-Jay/Baileys
-        version: https://codeload.github.com/JonathanChuahE-Jay/Baileys/tar.gz/1ec1945c26f0f740c9be843e4dfccbb6cce409ea(sharp@0.34.5)
+        version: https://codeload.github.com/JonathanChuahE-Jay/Baileys/tar.gz/e71a8f53efa66e7ba2bbc8a1b700d14d56b1a370(sharp@0.34.5)
       dayjs:
         specifier: ^1.11.19
         version: 1.11.20
@@ -461,8 +461,8 @@ packages:
   avvio@9.2.0:
     resolution: {integrity: sha512-2t/sy01ArdHHE0vRH5Hsay+RtCZt3dLPji7W7/MMOCEgze5b7SNDC4j5H6FnVgPkI1MTNFGzHdHrVXDDl7QSSQ==}
 
-  baileys@https://codeload.github.com/JonathanChuahE-Jay/Baileys/tar.gz/1ec1945c26f0f740c9be843e4dfccbb6cce409ea:
-    resolution: {tarball: https://codeload.github.com/JonathanChuahE-Jay/Baileys/tar.gz/1ec1945c26f0f740c9be843e4dfccbb6cce409ea}
+  baileys@https://codeload.github.com/JonathanChuahE-Jay/Baileys/tar.gz/e71a8f53efa66e7ba2bbc8a1b700d14d56b1a370:
+    resolution: {tarball: https://codeload.github.com/JonathanChuahE-Jay/Baileys/tar.gz/e71a8f53efa66e7ba2bbc8a1b700d14d56b1a370}
     version: 7.0.0-rc.9
     engines: {node: '>=20.0.0'}
     peerDependencies:
@@ -1383,7 +1383,7 @@ snapshots:
       '@fastify/error': 4.2.0
       fastq: 1.20.1
 
-  baileys@https://codeload.github.com/JonathanChuahE-Jay/Baileys/tar.gz/1ec1945c26f0f740c9be843e4dfccbb6cce409ea(sharp@0.34.5):
+  baileys@https://codeload.github.com/JonathanChuahE-Jay/Baileys/tar.gz/e71a8f53efa66e7ba2bbc8a1b700d14d56b1a370(sharp@0.34.5):
     dependencies:
       '@cacheable/node-cache': 1.7.6
       '@hapi/boom': 9.1.4
