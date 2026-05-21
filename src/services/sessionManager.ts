@@ -117,6 +117,7 @@ function readSessionsFile(): SessionMeta[] {
 }
 
 function writeSessionsFile(data: SessionMeta[]): void {
+   fs.mkdirSync(SESSIONS_DIR, {recursive: true})
    fs.writeFileSync(SESSIONS_FILE, JSON.stringify(data, null, 2))
 }
 
@@ -260,7 +261,7 @@ export async function createSession(sessionId: string, callbackUrls?: string[], 
             info.name = user.name
          }
 
-         console.log(`[${sessionId}] Connected! Phone: ${info.phoneNumber}`)
+         console.log(`[${sessionId}] Connected! Phone: ${info.phoneNumber}. Session metadata saved to ${SESSIONS_FILE}`)
          sessions.set(sessionId, info)
          upsertSessionInFile(info)
          fireCallbacks(info, 'open').catch(() => {})
